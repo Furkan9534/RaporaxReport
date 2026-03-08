@@ -1,0 +1,46 @@
+@baseUrl = http://localhost:5199
+@contentType = application/json
+
+### 1) Admin ile login (seed verisi)
+POST {{baseUrl}}/api/auth/login
+Content-Type: {{contentType}}
+
+{
+  "email": "admin@raporax.com",
+  "password": "Admin123!"
+}
+
+###
+
+### 2) Hatalı şifre — 401 beklenir
+POST {{baseUrl}}/api/auth/login
+Content-Type: {{contentType}}
+
+{
+  "email": "admin@raporax.com",
+  "password": "YanlisParola!"
+}
+
+###
+
+### 3) Var olmayan kullanıcı — 401 beklenir (aynı mesaj, bilgi sızdırmaz)
+POST {{baseUrl}}/api/auth/login
+Content-Type: {{contentType}}
+
+{
+  "email": "yok@raporax.com",
+  "password": "Admin123!"
+}
+
+###
+
+### 4) Validation hatası — 400 beklenir
+POST {{baseUrl}}/api/auth/login
+Content-Type: {{contentType}}
+
+{
+  "email": "gecersiz-email",
+  "password": "k"
+}
+
+###

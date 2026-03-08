@@ -1,0 +1,8 @@
+<Solution>
+  <Folder Name="/src/">
+    <Project Path="src/RaporaxReport.API/RaporaxReport.API.csproj" />
+  </Folder>
+  <Folder Name="/tests/">
+    <Project Path="tests/RaporaxReport.Tests/RaporaxReport.Tests.csproj" />
+  </Folder>
+</Solution>

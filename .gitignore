@@ -1,0 +1,26 @@
+# Build çıktıları
+bin/
+obj/
+
+# User-specific files
+*.user
+*.suo
+.vs/
+
+# Rider / VS Code
+.idea/
+.vscode/
+
+# NuGet
+*.nupkg
+packages/
+
+# Secrets — production'da environment variable kullan
+appsettings.Production.json
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Claude memory
+.claude/
