@@ -1,0 +1,5 @@
+- `[x]` Dockerfile oluşturulacak (Canlı ortama uygun, multi-stage).
+- `[x]` .dockerignore eklenecek.
+- `[x]` docker-compose.yml oluşturulacak (Veritabanı bağlantıları, ortam değişkenleri ve SQL Authentication ile).
+- `[x]` Program.cs'deki `RequireHttpsMetadata` ve güvenlik ayarları canlıya göre optimize edilecek.
+- `[x]` Test edilecek (Build ve Up işlemleri).

@@ -45,7 +45,7 @@ builder.Services.AddAuthentication(options =>
 })
 .AddJwtBearer(options =>
 {
-    options.RequireHttpsMetadata = false; // Set to true in production
+    options.RequireHttpsMetadata = !builder.Environment.IsDevelopment(); // Proda gerçek SSL gerekebilir.
     options.SaveToken = true;
     options.TokenValidationParameters = new TokenValidationParameters
     {
@@ -76,7 +76,33 @@ builder.Services.AddScoped<AuthApi.Services.IAuthService, AuthApi.Services.AuthS
 builder.Services.AddScoped<AuthApi.Services.IAdminService, AuthApi.Services.AdminService>();
 builder.Services.AddControllers(); // Standard API controllers
 builder.Services.AddEndpointsApiExplorer();
-builder.Services.AddSwaggerGen();
+builder.Services.AddSwaggerGen(options =>
+{
+    options.AddSecurityDefinition("Bearer", new Microsoft.OpenApi.Models.OpenApiSecurityScheme
+    {
+        Name = "Authorization",
+        Type = Microsoft.OpenApi.Models.SecuritySchemeType.Http,
+        Scheme = "Bearer",
+        BearerFormat = "JWT",
+        In = Microsoft.OpenApi.Models.ParameterLocation.Header,
+        Description = "JWT token girin. Örnek: Bearer eyJhbGci..."
+    });
+
+    options.AddSecurityRequirement(new Microsoft.OpenApi.Models.OpenApiSecurityRequirement
+    {
+        {
+            new Microsoft.OpenApi.Models.OpenApiSecurityScheme
+            {
+                Reference = new Microsoft.OpenApi.Models.OpenApiReference
+                {
+                    Type = Microsoft.OpenApi.Models.ReferenceType.SecurityScheme,
+                    Id = "Bearer"
+                }
+            },
+            Array.Empty<string>()
+        }
+    });
+});
 
 var isTesting = builder.Environment.EnvironmentName == "Testing";
 
@@ -134,14 +160,61 @@ app.MapControllers();
 
 using (var scope = app.Services.CreateScope())
 {
-    var roleManager = scope.ServiceProvider.GetRequiredService<RoleManager<IdentityRole>>();
-    var roles = new[] { "Admin", "ReportViewer", "ReportCreator" };
+    var db = scope.ServiceProvider.GetRequiredService<AppDbContext>();
+    if (db.Database.IsRelational())
+        await db.Database.MigrateAsync();
+    else
+        await db.Database.EnsureCreatedAsync();
 
+    var roleManager = scope.ServiceProvider.GetRequiredService<RoleManager<IdentityRole>>();
+    var userManager = scope.ServiceProvider.GetRequiredService<UserManager<ApplicationUser>>();
+    var config = scope.ServiceProvider.GetRequiredService<IConfiguration>();
+
+    var roles = new[] { "Admin", "ReportViewer", "ReportCreator" };
     foreach (var role in roles)
     {
         if (!await roleManager.RoleExistsAsync(role))
         {
             await roleManager.CreateAsync(new IdentityRole(role));
+        }
+    }
+
+    if (!isTesting)
+    {
+        var adminEmail = config["AdminSettings:Email"]
+            ?? throw new InvalidOperationException("AdminSettings:Email is not configured.");
+        var adminPassword = config["AdminSettings:Password"]
+            ?? throw new InvalidOperationException("AdminSettings:Password is not configured.");
+
+        var existingAdmin = await userManager.FindByEmailAsync(adminEmail);
+        if (existingAdmin == null)
+        {
+            var systemCompany = await db.Companies.FirstOrDefaultAsync(c => c.Name == "System");
+            if (systemCompany == null)
+            {
+                systemCompany = new Company { Name = "System" };
+                db.Companies.Add(systemCompany);
+                await db.SaveChangesAsync();
+            }
+
+            var adminUser = new ApplicationUser
+            {
+                UserName = adminEmail,
+                Email = adminEmail,
+                EmailConfirmed = true,
+                CompanyId = systemCompany.Id
+            };
+
+            var result = await userManager.CreateAsync(adminUser, adminPassword);
+            if (result.Succeeded)
+            {
+                await userManager.AddToRoleAsync(adminUser, "Admin");
+            }
+            else
+            {
+                var errors = string.Join(", ", result.Errors.Select(e => e.Description));
+                throw new InvalidOperationException($"Failed to create admin user: {errors}");
+            }
         }
     }
 }

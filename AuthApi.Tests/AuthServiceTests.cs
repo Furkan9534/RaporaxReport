@@ -164,16 +164,61 @@ public class AuthServiceTests
     {
         var user = new ApplicationUser { Email = "test@test.com" };
         _userManagerMock.Setup(x => x.FindByEmailAsync(user.Email)).ReturnsAsync(user);
-        
+
         var identityErrors = new[] { new IdentityError { Code = "PasswordTooShort", Description = "Too short" } };
         _userManagerMock.Setup(x => x.ResetPasswordAsync(user, "token", "weak"))
             .ReturnsAsync(IdentityResult.Failed(identityErrors));
-            
+
         var result = await _authService.ResetPasswordAsync(new ResetPasswordRequest { Email = user.Email, Token = "token", NewPassword = "weak" });
-        
+
         Assert.False(result.Success);
         Assert.NotNull(result.Errors);
         Assert.Contains("Too short", result.Errors);
+    }
+
+    [Fact]
+    public async Task ResetPasswordAsync_ReturnsSuccess_ForValidToken()
+    {
+        var user = new ApplicationUser { Email = "test@test.com" };
+        _userManagerMock.Setup(x => x.FindByEmailAsync(user.Email)).ReturnsAsync(user);
+        _userManagerMock.Setup(x => x.ResetPasswordAsync(user, "valid-token", "NewPassword123!"))
+            .ReturnsAsync(IdentityResult.Success);
+
+        var result = await _authService.ResetPasswordAsync(new ResetPasswordRequest
+        {
+            Email = user.Email,
+            Token = "valid-token",
+            NewPassword = "NewPassword123!"
+        });
+
+        Assert.True(result.Success);
+        Assert.Equal("Password has been reset successfully.", result.Message);
+    }
+
+    [Fact]
+    public async Task ForgotPasswordAsync_SendsEmail_WhenUserExists()
+    {
+        var user = new ApplicationUser { Email = "test@test.com" };
+        _userManagerMock.Setup(x => x.FindByEmailAsync(user.Email)).ReturnsAsync(user);
+        _userManagerMock.Setup(x => x.GeneratePasswordResetTokenAsync(user)).ReturnsAsync("reset-token");
+
+        await _authService.ForgotPasswordAsync(new ForgotPasswordRequest { Email = user.Email });
+
+        _emailSenderMock.Verify(
+            x => x.SendEmailAsync(user.Email, It.IsAny<string>(), It.IsAny<string>()),
+            Times.Once);
+    }
+
+    [Fact]
+    public async Task ForgotPasswordAsync_DoesNotSendEmail_WhenUserDoesNotExist()
+    {
+        _userManagerMock.Setup(x => x.FindByEmailAsync(It.IsAny<string>())).ReturnsAsync((ApplicationUser)null);
+
+        await _authService.ForgotPasswordAsync(new ForgotPasswordRequest { Email = "ghost@test.com" });
+
+        _emailSenderMock.Verify(
+            x => x.SendEmailAsync(It.IsAny<string>(), It.IsAny<string>(), It.IsAny<string>()),
+            Times.Never);
     }
 }
 

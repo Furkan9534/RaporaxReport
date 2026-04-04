@@ -1,4 +1,5 @@
 using AuthApi.DTOs;
+using System.IdentityModel.Tokens.Jwt;
 using System.Net;
 using System.Net.Http.Headers;
 using System.Net.Http.Json;
@@ -115,6 +116,23 @@ public class AuthIntegrationTests : IClassFixture<CustomWebApplicationFactory>
     }
 
     [Fact]
+    public async Task Login_ValidCredentials_TokenContainsCompanyIdAndEmail()
+    {
+        var email = $"claims_{Guid.NewGuid()}@test.com";
+        await _client.PostAsJsonAsync("/api/auth/register", new RegisterRequest { Email = email, Password = "Password123!", CompanyName = "ClaimsTestCo" });
+
+        var loginResponse = await _client.PostAsJsonAsync("/api/auth/login", new LoginRequest { Email = email, Password = "Password123!" });
+        var loginData = await loginResponse.Content.ReadFromJsonAsync<LoginResponse>();
+
+        var handler = new JwtSecurityTokenHandler();
+        var jwt = handler.ReadJwtToken(loginData!.AccessToken);
+
+        Assert.Contains(jwt.Claims, c => c.Type == JwtRegisteredClaimNames.Email && c.Value == email);
+        Assert.Contains(jwt.Claims, c => c.Type == "companyId" && !string.IsNullOrEmpty(c.Value));
+        Assert.Contains(jwt.Claims, c => c.Type == JwtRegisteredClaimNames.Sub && !string.IsNullOrEmpty(c.Value));
+    }
+
+    [Fact]
     public async Task ForgotPassword_ReturnsGenericSuccess_ForUnknownEmail()
     {
         var response = await _client.PostAsJsonAsync("/api/auth/forgot-password", new ForgotPasswordRequest { Email = "unknown@test.com" });
@@ -130,5 +148,17 @@ public class AuthIntegrationTests : IClassFixture<CustomWebApplicationFactory>
         Assert.Equal(HttpStatusCode.BadRequest, response.StatusCode);
         var res = await response.Content.ReadFromJsonAsync<ResetPasswordResponse>();
         Assert.False(res!.Success);
+    }
+
+    [Fact]
+    public async Task Register_WeakPassword_ReturnsBadRequest()
+    {
+        var response = await _client.PostAsJsonAsync("/api/auth/register", new RegisterRequest
+        {
+            Email = $"weak_{Guid.NewGuid()}@test.com",
+            Password = "weak",
+            CompanyName = "Any"
+        });
+        Assert.Equal(HttpStatusCode.BadRequest, response.StatusCode);
     }
 }

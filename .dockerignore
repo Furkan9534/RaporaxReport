@@ -1,0 +1,16 @@
+bin/
+obj/
+.git/
+.vscode/
+.vs/
+*.db
+*.sqlite
+appsettings.Development.json
+AuthApi.Tests/
+*.user
+*.suo
+node_modules/
+project_review.md
+implementation_plan.md
+task.md
+walkthrough.md
