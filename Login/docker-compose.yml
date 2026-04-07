@@ -27,6 +27,7 @@ services:
       - ASPNETCORE_ENVIRONMENT=Production
       - ConnectionStrings__DefaultConnection=Server=db;Database=AuthApiDb;User Id=sa;Password=YourStrongPassword123!;TrustServerCertificate=True
       - JwtSettings__Key=YOUR_PRODUCTION_SECRET_KEY_MIN_32_CHARS_LONG
+      - AdminSettings__Email=admin@system.com
       - AdminSettings__Password=AdminSystem_Production_2024!
 
 volumes:
